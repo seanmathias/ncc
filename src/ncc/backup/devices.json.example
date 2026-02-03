@@ -1,0 +1,50 @@
+[
+  {
+    "hostname": "192.168.1.1",
+    "device_type": "junos",
+    "username": "admin",
+    "password": "juniper_password",
+    "optional_args": {
+      "port": 22
+    }
+  },
+  {
+    "hostname": "cisco-core-01.example.com",
+    "device_type": "ios",
+    "username": "admin",
+    "password": "cisco_password",
+    "optional_args": {
+      "secret": "enable_password"
+    }
+  },
+  {
+    "hostname": "192.168.1.10",
+    "device_type": "nxos",
+    "username": "admin",
+    "password": "nexus_password",
+    "optional_args": {}
+  },
+  {
+    "hostname": "arista-leaf-01.example.com",
+    "device_type": "eos",
+    "username": "admin",
+    "password": "arista_password",
+    "optional_args": {
+      "transport": "https"
+    }
+  },
+  {
+    "hostname": "192.168.1.20",
+    "device_type": "iosxr",
+    "username": "admin",
+    "password": "iosxr_password",
+    "optional_args": {}
+  },
+  {
+    "hostname": "juniper-mx-01.example.com",
+    "device_type": "junos",
+    "username": "netadmin",
+    "password": "junos_password",
+    "optional_args": {}
+  }
+]
