@@ -61,7 +61,7 @@ Cisco IOS
     }
 
     "optional_args": {
-        "secret": "enable_password",    // Enable password
+        "secret": "enable_password",        // Enable password
         "ssh_config_file": "~/.ssh/config"  // SSH config file
     }
 
@@ -73,14 +73,14 @@ NX-API
 
 All
     "optional_args": {
-        "port": 22,           // Custom SSH/API port
-        "timeout": 60         // Connection timeout in seconds
+        "port": 22,                // Custom SSH/API port
+        "timeout": 60              // Connection timeout in seconds
     }
 
 Arista
     "optional_args": {
-        "transport": "https",   // or "http"
-        "port": 443,           // or 80 for http
+        "transport": "https",      // or "http"
+        "port": 443,               // or 80 for http
         "enable_password": "enable_secret"
     }
 
@@ -88,7 +88,7 @@ Juniper
     "optional_args": {
         "config_lock": false,      // Don't lock config
         "config_private": true,    // Use private candidate config
-        "auto_probe": 30          // Probe timeout
+        "auto_probe": 30           // Probe timeout
     }
 ```
 

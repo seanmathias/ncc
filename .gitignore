@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+src/ncc/backup/*.json
 
 # Virtual environments
 .venv
