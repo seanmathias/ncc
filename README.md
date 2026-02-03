@@ -53,6 +53,7 @@ The general format is:
 ```
 There are some optional arguments that vary by platform:
 
+```
 Cisco IOS
     "optional_args": {
         "secret": "enable_password",
@@ -89,6 +90,7 @@ Juniper
         "config_private": true,    // Use private candidate config
         "auto_probe": 30          // Probe timeout
     }
+```
 
 Device Types Reference:
 Use these device_type values in your inventory:
