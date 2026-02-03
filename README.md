@@ -95,11 +95,12 @@ Juniper
 Device Types Reference:
 Use these device_type values in your inventory:
 
-Vendor      Device Type         Description
-Cisco       ios                 IOS devices (Catalyst, ISR)
-Cisco       nxos                Nexus switches (NX-API)
-Cisco       nxos_ssh            Nexus switches (SSH)
-Cisco       iosxr               IOS-XR devices (XML API)
-Cisco       iosxr_netconf       IOS-XR devices (NETCONF)
-Juniper     junos               JunOS devices (all)
-Arista      eos                 Arista EOS devices
+| Vendor | Device Type     |   Description                 |
+|--------|:----------------|:------------------------------|
+|Cisco   |  ios            |   IOS devices (Catalyst, ISR) |
+Cisco    |  nxos           |   Nexus switches (NX-API)     |
+Cisco    |  nxos_ssh       |   Nexus switches (SSH)        |
+Cisco    |  iosxr          |   IOS-XR devices (XML API)    |
+Cisco    |  iosxr_netconf  |   IOS-XR devices (NETCONF)    |
+Juniper  |  junos          |   JunOS devices (all)         |
+Arista   |  eos            |   Arista EOS devices          |
