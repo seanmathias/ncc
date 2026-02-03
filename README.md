@@ -92,7 +92,7 @@ Juniper
     }
 ```
 
-Device Types Reference:
+### Device Types Reference
 Use these device_type values in your inventory:
 
 | Vendor | Device Type     |   Description                 |
