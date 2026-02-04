@@ -5,7 +5,14 @@ build/
 dist/
 wheels/
 *.egg-info
+
+# Do not include device files - may have credentials
 src/ncc/backup/*.json
+backups/
+ncc_backups/
+
+# Ignore change log
+CHANGELOG.md
 
 # Virtual environments
 .venv

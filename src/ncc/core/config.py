@@ -5,7 +5,6 @@ Handles loading and managing configuration from various sources including
 environment variables, config files, and defaults.
 """
 
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,8 +24,8 @@ class NCCConfig(BaseSettings):
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     workers: int = Field(default=64, description="Number of parallel tasks (default=64)")
-    username: Optional[str] = Field(default=None, description="Username for device authentication")
-    password: Optional[str] = Field(default=None, description="Password for device authentication")
+    username: str = Field(default='', description="Username for device authentication")
+    password: str = Field(default='', description="Password for device authentication")
 
     # Database settings
     database_url: str = Field(

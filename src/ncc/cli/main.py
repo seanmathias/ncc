@@ -20,11 +20,12 @@ console = Console()
 
 class NCCContext:
     """Context object for passing state between CLI commands."""
-    
     def __init__(self):
         self.config = config
-        self.silent = False
         self.debug = False
+        self.workers = 64
+        self.username = ""
+        self.password = ""
 
 
 pass_context = click.make_pass_decorator(NCCContext, ensure=True)
@@ -57,7 +58,6 @@ pass_context = click.make_pass_decorator(NCCContext, ensure=True)
     type=click.Path(path_type=Path),
     help="Path to log file"
 )
-
 @pass_context
 def cli(
     ctx: NCCContext,
@@ -73,16 +73,21 @@ def cli(
     NCC provides comprehensive network device inventory management, discovery,
     diagnostics, and automation capabilities through both CLI and web interfaces.
     """
-    ctx.debug = debug
-    ctx.workers = workers
-    ctx.username = username
-    ctx.password = password
+    ctx.debug = True if debug else False
+    ctx.workers = int(workers) if workers else config.workers
+    
+    if username and not password or password and not username:
+        console.print("[bold red]Error:[/bold red] Both username and password must be provided together.")
+        sys.exit(1)
+    elif username and password:
+        ctx.username = username
+        ctx.password = password
     
     # Configure logging
-    log_level = "DEBUG" if debug else config.log_level
+    log_level = "DEBUG" if ctx.debug else config.log_level
     setup_logging(level=log_level, log_file=log_file)
     
-    if debug:
+    if ctx.debug:
         logger.debug("Debug mode enabled")
         logger.debug(f"Configuration: {ctx.config.model_dump()}")
 

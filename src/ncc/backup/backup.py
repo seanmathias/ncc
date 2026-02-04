@@ -4,8 +4,7 @@ Backup CLI commands.
 Provides commands for performing device configuration backups.
 """
 
-#from doctest import debug
-from doctest import debug
+
 import os
 import sys
 import json
@@ -38,6 +37,11 @@ console = Console()
     help="No console output"
 )
 @click.option(
+    "--tag",
+    is_flag=False,
+    help="Add tag to backup filename. No spaces allowed."
+)
+@click.option(
     "--devices",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     help="JSON file of target devices to archive configuraion backups"
@@ -55,74 +59,69 @@ def backup(
     ctx: NCCContext,
     vendors: Optional[bool],
     silent: Optional[bool],
+    tag: Optional[str],
     devices: Path,
     directory: Optional[Path]
 ):
-
-    debug = ctx.debug
-    workers = ctx.workers
-    username = ctx.username
-    password = ctx.password
-
+    """Backup device configurations command."""
     try:
         # vendor list requested
         if vendors:
             list_supported_vendors()
             sys.exit(0)
 
-        # credentials from command line
-        credentials = {}
-        if username and not password or password and not username:
-            console.print("[bold red]Error:[/bold red] Both username and password must be provided.")
-            sys.exit(1)
-        if username and password:
-            credentials['username'] = username
-            credentials['password'] = password
-            logger.debug("Using credentials from command line for devices missing them")
+        ctx.silent = silent
+        ctx.tag = tag
+        ctx.devices = devices
+        ctx.directory = directory
 
         # Set number of parallel workers
-        if workers is None:
-            workers = 5  # default number of parallel tasks
-        logger.debug(f"Using {workers} parallel backup tasks")
+        logger.debug(f"Using {ctx.workers} parallel backup tasks")
         
+        # Tag for backup filenames
+        if ctx.tag:
+            if ' ' in ctx.tag:
+                console.print("[bold red]Error:[/bold red] Tag cannot contain spaces.")
+                raise ValueError("Tag cannot contain spaces")
+            logger.debug(f"Using tag '{ctx.tag}' for backup filenames")
+
         # Get the device inventory file
-        if devices is None:
+        if ctx.devices is None:
             console.print("[bold red]Error:[/bold red] Devices file is required.")
             console.print()
             click.echo(backup.get_help(click.Context(backup)))
             sys.exit(1)
         
         # Create backup directory
-        if directory is None:
-            directory = Path.cwd() / "ncc_backups"
+        if ctx.directory is None:
+            ctx.directory = Path.cwd() / "ncc_backups"
 
-        directory.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Configuration backup directory: {directory}")
+        ctx.directory.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Configuration backup directory: {ctx.directory}")
         
         # Load inventory
-        inventory = load_inventory(devices)
-        logger.debug(f"Loaded {len(inventory)} devices from {devices}")
-
-        # Apply credentials from the command line to devices missing them
-        if credentials:
-            for device in inventory:
-                if 'username' not in device or not device['username']:
-                    device['username'] = credentials['username']
-                if 'password' not in device or not device['password']:
-                    device['password'] = credentials['password']
+        ctx.inventory = load_inventory(ctx)
+        logger.debug(f"Loaded {len(ctx.inventory)} devices from {ctx.devices}")
+        # Use credentials from command line where needed if provided
+        if ctx.username and ctx.password:
+            for device in ctx.inventory:
+                if device.get('username') is None or device.get('password') is None:
+                    logger.debug(f"[{device.get('hostname')}] Using CLI provided credentials")
+                    device['username'] = ctx.username
+                    device['password'] = ctx.password
 
         # Print device count by type
         device_types = {}
-        for device in inventory:
+        for device in ctx.inventory:
             dt = device['device_type']
             device_types[dt] = device_types.get(dt, 0) + 1
 
-        if debug:
-            logger.debug("\nDevices to backup:")
+        if ctx.debug:
+            logger.debug("Devices to backup:")
             for dt, count in sorted(device_types.items()):
                 vendor_name = config.supported_vendors.get(dt, dt)
                 logger.debug(f"  - {vendor_name}: {count} device(s)")
-        if not debug and not silent:
+        if not ctx.debug and not ctx.silent:
             table = Table(title="Devices to Backup", show_lines=True)
             table.add_column("Device Type", style="cyan", no_wrap=True)
             table.add_column("Count", style="magenta", justify="right")
@@ -133,16 +132,18 @@ def backup(
             console.print()
 
         # Perform device configuration backups
-        if debug:
+        if ctx.debug:
             logger.debug("Starting backup process...")
-        if not debug and not silent:
+        if not ctx.debug and not ctx.silent:
             console.print("[bold cyan]Starting backup process...[/bold cyan]")
-        results = backup_all_devices(inventory, directory, workers, debug, silent)
-
+        results = backup_all_devices(ctx)
         # Print summary
-        if debug:
+        if ctx.debug:
+            successful = sum(1 for r in results if r['success'])
+            failed = len(results) - successful
+            logger.debug(f"Backup Summary: {successful} successful, {failed} failed")
             logger.debug("Backup process complete")
-        if not debug and not silent:
+        if not ctx.debug and not ctx.silent:
             print_summary(results)
             console.print("[bold green]Backup complete![/bold green]")
 
@@ -151,11 +152,10 @@ def backup(
         logger.exception("Failed to backup configurations")
         sys.exit(1)
 
-
-def load_inventory(inventory_file: Path) -> dict:
+def load_inventory(ctx: NCCContext) -> list:
     """Load device inventory from JSON file"""
     try:
-        with open(inventory_file, 'r') as f:
+        with open(ctx.devices, 'r') as f:
             inventory = json.load(f)
         logger.debug(f"Loaded {len(inventory)} devices from inventory")
         
@@ -169,29 +169,23 @@ def load_inventory(inventory_file: Path) -> dict:
                     f"Device type '{device_type}' for {device.get('hostname')} "
                     f"is not in the known supported list, but will attempt connection"
                 )
-        
+
         return inventory
     except FileNotFoundError:
-        logger.error(f"Inventory file {inventory_file} not found")
+        logger.error(f"Inventory file {ctx.devices} not found")
         raise
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in inventory file: {e}")
         raise
 
 
-def backup_all_devices(
-        inventory: list, 
-        directory: Path, 
-        workers: int, 
-        debug: bool, 
-        silent: bool) -> list:
+def backup_all_devices(ctx: NCCContext) -> list:
     """
     Backup configurations from all devices in parallel
     
     Args:
         inventory (list): List of device information dictionaries
-        directory (Path): Directory to store backup files
-        workers (int): Number of parallel backup tasks
+        params (Params): Parameters object containing backup configuration
         
     Returns:
         list: List of backup results
@@ -200,14 +194,14 @@ def backup_all_devices(
     
     # Use ThreadPoolExecutor for parallel backups
     with Progress() as progress:
-        if not debug and not silent:
-            task = progress.add_task("[cyan]Backing up devices...", total=len(inventory))
+        if not ctx.debug and not ctx.silent:
+            task = progress.add_task("[cyan]Backing up devices...", total=len(ctx.inventory))
         
-        with ThreadPoolExecutor(max_workers=workers) as executor:
+        with ThreadPoolExecutor(max_workers=ctx.workers) as executor:
             # Submit all backup tasks
             device_futures = {
-                executor.submit(backup_device, device, directory): device['hostname']
-                for device in inventory
+                executor.submit(backup_device, device, ctx): device['hostname']
+                for device in ctx.inventory
             }
             
             # Collect results as they complete
@@ -219,7 +213,7 @@ def backup_all_devices(
                     results.append(result)
                     logger.debug(f"[{hostname}] Backup task completed")
 
-                    if not debug and not silent:
+                    if not ctx.debug and not ctx.silent:
                         # update progress bar
                         progress.update(task, advance=1)
 
@@ -230,23 +224,23 @@ def backup_all_devices(
                         'success': False,
                         'error': str(e)
                     })
-                    if not debug and not silent:
+                    if not ctx.debug and not ctx.silent:
                         # update progress bar
                         progress.update(task, advance=1)
 
     return results
 
 
-def backup_device(device: dict, directory: Path) -> dict:
+def backup_device(device: dict, ctx: NCCContext) -> dict:
     """
     Backup configuration for a single device
     
     Args:
         device (list): Dictionary of device information
-        directory (Path): Base directory to store backup files
+        params (Params): Parameters object containing backup configuration
         
     Returns:
-        list: List of backup results
+        dict: Backup result for the device
     """
     hostname = device['hostname']
     device_type = device['device_type']
@@ -286,10 +280,13 @@ def backup_device(device: dict, directory: Path) -> dict:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # file and directory setup
-        backup_dir = Path(directory) / result['hostname']
+        backup_dir = Path(ctx.directory) / result['hostname']
         backup_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = Path(backup_dir) / f"{result['hostname']}_{timestamp}.cfg"
+        if ctx.tag:
+            filename = Path(backup_dir) / f"{result['hostname']}_{ctx.tag}_{timestamp}.cfg"
+        else:
+            filename = Path(backup_dir) / f"{result['hostname']}_{timestamp}.cfg"
         
         # write configuration to file
         with open(filename, 'w') as f:
@@ -305,7 +302,7 @@ def backup_device(device: dict, directory: Path) -> dict:
         })
         
     except Exception as e:
-        logger.error(f"[{hostname}] Backup failed: {e}")
+        logger.debug(f"[{hostname}] Backup failed: {e}")
         result.update({
             'error': str(e)
         })
