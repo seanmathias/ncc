@@ -91,7 +91,8 @@ def backup(
             console.print()
             click.echo(backup.get_help(click.Context(backup)))
             sys.exit(1)
-        
+        logger.debug(f"Using device inventory file: {ctx.devices}")
+
         # Create backup directory
         if ctx.directory is None:
             ctx.directory = Path.cwd() / "ncc_backups"
@@ -110,33 +111,28 @@ def backup(
                     device['username'] = ctx.username
                     device['password'] = ctx.password
 
-        # Print device count by type
-        device_types = {}
-        for device in ctx.inventory:
-            dt = device['device_type']
-            device_types[dt] = device_types.get(dt, 0) + 1
-
-        if ctx.debug:
-            logger.debug("Devices to backup:")
-            for dt, count in sorted(device_types.items()):
-                vendor_name = config.supported_vendors.get(dt, dt)
-                logger.debug(f"  - {vendor_name}: {count} device(s)")
+        # Perform device configuration backups
+        logger.debug("Starting backup job...")
         if not ctx.debug and not ctx.silent:
-            table = Table(title="Devices to Backup", show_lines=True)
-            table.add_column("Device Type", style="cyan", no_wrap=True)
-            table.add_column("Count", style="magenta", justify="right")
-            for dt, count in sorted(device_types.items()):
-                vendor_name = config.supported_vendors.get(dt, dt)
-                table.add_row(vendor_name, str(count))
-            console.print(table)
+            console.print("[bold cyan]Starting backup job...[/bold cyan]")
+
+        # Job Summary
+        # workers, device count, devices file, directory, tag, credentials
+        if not ctx.debug and not ctx.silent:
+            console.print(
+                f"Backing up [bold magenta]{len(ctx.inventory)}[/bold magenta] "
+                f"devices using [bold magenta]{ctx.workers}[/bold magenta] parallel tasks"
+            )
+            console.print(f"Device inventory file: [bold magenta]{ctx.devices}[/bold magenta]")            
+            console.print(f"Backup directory: [bold magenta]{ctx.directory}[/bold magenta]")
+            if ctx.tag:
+                console.print(f"Using tag: [bold magenta]{ctx.tag}[/bold magenta]")
+            if ctx.username and ctx.password:
+                console.print("Using provided username and password for devices missing credentials")
             console.print()
 
-        # Perform device configuration backups
-        if ctx.debug:
-            logger.debug("Starting backup process...")
-        if not ctx.debug and not ctx.silent:
-            console.print("[bold cyan]Starting backup process...[/bold cyan]")
         results = backup_all_devices(ctx)
+
         # Print summary
         if ctx.debug:
             successful = sum(1 for r in results if r['success'])
@@ -145,7 +141,7 @@ def backup(
             logger.debug("Backup process complete")
         if not ctx.debug and not ctx.silent:
             print_summary(results)
-            console.print("[bold green]Backup complete![/bold green]")
+            console.print("[bold green]Backup job complete![/bold green]")
 
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
@@ -336,6 +332,7 @@ def print_summary(results):
     table.add_row("Total Devices", str(total))
     table.add_row("Successful Backups", str(successful))
     table.add_row("Failed Backups", str(failed))
+    console.print()
     console.print(table)
     console.print()
     
